@@ -1,0 +1,33 @@
+#!/usr/bin/ruby
+# **************************************************************************
+# evalfixed 
+# 
+# Author: Christian Wolf
+#         christian.wolf@liris.cnrs.fr
+#
+# Changelog:
+# 1.00 21.07.2014: -Start
+#
+# 1 tab = 4 spaces
+#
+# **************************************************************************
+
+def printAndRun(com)
+	$stderr.puts com
+	if not system(com)
+		$stderr.printf "Error code: %d\n",$?
+		exit 1
+	end
+end	
+
+if ARGV.length()<1
+	$stderr.puts ("usage: evalfixed <det-results-xml> <groundtruth-xml>")
+	exit 1
+end
+
+
+com="evaldetection "+ARGV.join(" ")+" > _x.xml"
+printAndRun(com)
+
+com="readdeteval _x.xml"
+printAndRun(com)

@@ -1,0 +1,392 @@
+#!/usr/bin/ruby
+# **************************************************************************
+# evalplots 
+# 
+# Author: Christian Wolf
+#         christian.wolf@insa-lyon.fr
+#
+# Changelog:
+# 1.02 21.07.2009: -Bugfixes for windows: put whole filenames in quotes 
+#                   instead of quoting spaces with backslashes, which 
+#                   does not work on windows.
+# 2.12 20.07.2009: -Bugfix: spaces in the filenames are admitted (quoted
+#                   with backslashes)
+# 2.11 20.07.2009: -Added --object-types option
+# 2.10 02.04.2009: -Added --doplot option
+# 2.04 14.05.2007: -Bugfix: arguments are always convert since to_f does not
+#                   raise an exception (how could this work before??) :)
+#                  -Changed the program name in the error messages.
+# 2.03 29.11.2006: -Bugfix: the numerical values have not been converted into
+#                   numbers (how could this work before???). Fixed the help
+#                   screen.
+# 2.02 29.11.2006: -Bugfix: readtextdeteval -> readdeteval
+# 2.01 28.11.2006: -Bugfix: the executable sumarizeeval does not exist anymore,
+#                   it's functionality has been added to readtextdeteval
+# 2.00 18.04.2006: -Rewrite from the old (not very flexible) UNIX shell 
+#                   version
+#
+# 1 tab = 4 spaces
+#
+# **************************************************************************
+
+require 'tempfile'
+
+# **************************************************************************
+# CONFIGURATION
+
+$Version="2.13 21.07.2009"
+
+# **************************************************************************
+# VARIOUS CONSTANTS
+
+$err="evalplots: *** ERROR *** "
+
+$licence=<<MARKER_MESSAGE
+Written by Christian Wolf (christian.wolf@liris.cnrs.fr)
+There is absolutely NO warranty!!
+
+MARKER_MESSAGE
+
+# ******************************************************************************
+# A helper function which quotes spaces in the filename
+# ******************************************************************************
+
+def quotefilename(filename)
+    rv="\"#{filename}\""
+	rv
+end
+
+# ******************************************************************************
+# Argument processing:
+# The Option-Container class
+# ******************************************************************************
+
+class OptionController
+
+	# --------------------------------------------------------------------------
+	# ---- constructor
+	def initialize(xargv)		
+		@o={}
+		@o["Files"]=[]
+		@o["tr-fix"]=0.80
+		@o["tr-beg"]=0.05
+		@o["tr-end"]=1.00
+		@o["tr-stp"]=0.05
+		@o["tp-fix"]=0.40
+		@o["tp-beg"]=0.05
+		@o["tp-end"]=1.00
+		@o["tp-stp"]=0.05
+		@o["thr-border"]=0.0
+		@o["thr-center-diff"]=1.0
+		@o["execevaldetection"]="evaldetection"
+		@o["execsumarizeeval"]="readdeteval"
+		@o["dir-curve-tp"]="evalcurve-tp"
+		@o["dir-curve-tr"]="evalcurve-tr"
+		@o["ignore-det"]=0
+		@o["ignore-gt"]=0
+		@o["doplot"]=false
+		@o["object-types"]=""
+		i=0
+		com=""
+		while i<xargv.length
+			opt=xargv[i]
+
+			case opt	
+			
+				when /^-h$|^--help$/
+					usage					
+			
+				when /^-v$|^--version$/ 
+					$stderr.puts "evalplots version "+$Version
+					$stderr.puts $licence
+					exit 0
+												
+				# ---- an option
+				when /^--/
+					arr=opt[2..opt.length-1].split("=")
+					if arr.length!=2 then
+						$stderr.printf "%swrong syntax in option '%s'\n",$err,opt					
+						exit 1
+					end
+					if @o[arr[0]]==nil then
+						$stderr.printf "%sunknown option '%s'\n",$err,arr[0]
+						exit 1
+					end
+					$stderr.printf "Setting %s to %s\n",arr[0],arr[1]
+					
+					# --- If possible, convert it to a number
+					begin
+						converted=Float(arr[1])
+					rescue
+						converted=arr[1]
+					end
+					@o[arr[0]]=converted
+			
+				# ---- The argument is not an option but a file
+				else				
+					@o["Files"].push(quotefilename(opt))
+			end
+			i=i+1
+		end
+		
+		usage if @o["Files"].length < 2 
+	end
+	
+	# --------------------------------------------------------------------------
+	# ---- check for a valid option argument
+	def checkOptArg(argv,i)
+		if argv.length<i+2
+			$stderr.printf "%soption '%s' needs an argument!\n",$err,argv[i]
+			exit 1
+		end
+		if argv[i+1][0,1]=="-"
+			$stderr.printf "%sinvalid argument '%s' to option '%s'!\n",$err,
+				argv[i+1],argv[i]
+			exit 1
+		end
+		return argv[i+1]
+	end
+		
+	# --------------------------------------------------------------------------	
+	# ---- writes the usage message
+	def usage
+		$stderr.printf "usage: %s [ options ] <det-results-xml> <groundtruth-xml>\n",$0
+		$stderr.printf "\nOptions are of the format --<option>=<value>\n"
+		$stderr.printf "\nAvailable options:"
+		$stderr.printf "\ntr-beg ............. start of the range for the tr threshold "
+		$stderr.printf "(default: "+@o["tr-beg"].to_s+")"
+		$stderr.printf "\ntr-end ............. end   of the range for the tr threshold "
+		$stderr.printf "(default: "+@o["tr-end"].to_s+")"
+		$stderr.printf "\ntr-stp ............. step  of the range for the tr threshold "
+		$stderr.printf "(default: "+@o["tr-stp"].to_s+")"
+		$stderr.printf "\ntr-fix ............. value of the tr threshold when it is fixed "
+		$stderr.printf "(default: "+@o["tr-fix"].to_s+")"
+		$stderr.printf "\ntp-beg ............. start of the range for the tp threshold "
+		$stderr.printf "(default: "+@o["tp-beg"].to_s+")"
+		$stderr.printf "\ntp-end ............. end   of the range for the tp threshold "
+		$stderr.printf "(default: "+@o["tp-end"].to_s+")"
+		$stderr.printf "\ntp-stp ............. step  of the range for the tp threshold "
+		$stderr.printf "(default: "+@o["tp-stp"].to_s+")"
+		$stderr.printf "\ntp-fix ............. value of the tp threshold when it is fixed "
+		$stderr.printf "(default: "+@o["tp-fix"].to_s+")"
+		$stderr.printf "\nthr-center-diff .... threshold on the distance between the centers"
+		$stderr.printf "\n                     of two rectangles "
+		$stderr.printf "(default: "+@o["thr-center-diff"].to_s+")"
+		$stderr.printf "\nthr-border.......... threshold on the relative horizontal border"
+		$stderr.printf "\n                     difference of two rectangles "
+		$stderr.printf "(default: "+@o["thr-border"].to_s+")"
+		$stderr.printf "\ndir-curve-tr ....... dirctory where the curve for varying tr is written"
+		$stderr.printf "\n                     "
+		$stderr.printf "(default: "+@o["dir-curve-tr"]+")"
+		$stderr.printf "\ndir-curve-tp ....... dirctory where the curve for varying tp is written"
+		$stderr.printf "\n                     "
+		$stderr.printf "(default: "+@o["dir-curve-tp"]+")"		
+		$stderr.printf "\nignore-det ......... How many levels in the image name path do we ignore"
+		$stderr.printf "\n                     (detection-xml)"
+		$stderr.printf "\nignore-gt .......... How many levels in the image name path do we ignore"
+		$stderr.printf "\n                     (groundtruth-xml)"
+		$stderr.printf "\nobject-types ....... Specify a comme separated list of object types which shall"
+        $stderr.printf "\n                     shall be loaded from the groundtruth, all other objects"
+        $stderr.printf "\n                     will be ignored in the groundtruth (but not in the "
+        $stderr.printf "\n                     detection lists!). Default: all objects will be loaded."
+		$stderr.printf "\ndoplot ............. true if pdf and png plots shall be created automatically."
+        $stderr.printf "\n                     (default: false)"
+        $stderr.printf "\n"
+		exit 0
+	end
+
+	# --------------------------------------------------------------------------
+	# ---- return a specific option
+	def [](oname)
+		x=@o[oname]
+		if x == nil
+			$stderr.printf "%sinternal error: option %s not found.\n",$err,oname
+			exit 1
+		else
+			return x
+		end
+	end
+			
+	# --------------------------------------------------------------------------
+	# ---- change a specific option
+	def []=(oname,newval)
+		x=@o[oname]
+		if x == nil
+			$stderr.printf "%sinternal error: option %s not found.\n",$err,oname
+			exit 1
+		else
+			@o[oname]=newval
+		end
+	end
+end
+
+# ******************************************************************************
+# The main controller class
+# ******************************************************************************
+
+class Controller
+
+	# --------------------------------------------------------------------------
+	# ---- constructor
+	def initialize
+		@oc = OptionController.new(ARGV)			
+	end	
+	
+	# --------------------------------------------------------------------------
+	# ---- The entry function
+	def run
+	
+	   #---- Test whether eplot and ec are installed
+#        if @oc["doplot"] 
+#             if not system("eplot -h 2> /dev/null")
+#                 $stderr.printf("eplot needs to be installed in order to use the --doplot=true option!");
+#                 exit 1
+#             end
+#             if not system("ec -h 2> /dev/null")
+#                 $stderr.printf("eplot needs to be installed in order to use the --doplot=true option!");
+#                 exit 1
+#             end
+#         end
+	
+		# ---- Create the performance plots
+		doOneCurve "tr","tp",@oc["dir-curve-tr"]
+		doOneCurve "tp","tr",@oc["dir-curve-tp"]
+		
+		# ---- Calculate the single performance value from the plots		
+		printf "=============================================================\n"
+		printf "The plot data have been written into the directories\n"
+		printf @oc["dir-curve-tr"]+" and "+@oc["dir-curve-tp"]+".\n"
+		printf "=============================================================\n"
+		r=  valueForOneCurve(@oc["dir-curve-tr"]+"/Recall")
+		r=r+valueForOneCurve(@oc["dir-curve-tp"]+"/Recall")
+		p=  valueForOneCurve(@oc["dir-curve-tr"]+"/Precision")
+		p=p+valueForOneCurve(@oc["dir-curve-tp"]+"/Precision")
+		r=0.5*r
+		p=0.5*p
+		h=2*p*r/(p+r)
+		printf "Overall recall                  = %.1f\n",100*r
+		printf "Overall precision               = %.1f\n",100*p
+		printf "Final single performance value: = %.1f\n",100*h
+	end
+	
+	# --------------------------------------------------------------------------
+	# ---- help function: run a command
+	def runcom(com,doEcho)
+		$stderr.printf "%s\n",com if doEcho 
+		if not system(com)
+			$stderr.printf "%srunning the command:\n%s",$err,com
+			$stderr.printf "Error code: %d\n",$?				
+			exit 1
+		end
+	end
+	
+	# --------------------------------------------------------------------------
+	# ---- Create one curve
+	# ---- varParam .... "tp" or "tr"
+	# ---- fixParam .... "tp" or "tr"
+	# ---- prefix ...... where do we want to create the data files?
+	def doOneCurve(varParam,fixParam,directory)
+		tbeg = @oc[varParam+"-beg"]
+		tend = @oc[varParam+"-end"]
+		tstp = @oc[varParam+"-stp"]
+		tfix = @oc[fixParam+"-fix"]
+		tfixstr=tfix.to_s
+		
+		# Open a temporary file and write the header into it
+		tfiledetails=Tempfile.new("evaldetectioncurves")
+		tfiledetails.printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+		tfiledetails.printf "<evaluationSeries>\n"
+		tfiledetails.close(false)
+		
+		t=tbeg
+		while t < tend+tstp
+			$stderr.printf "---\n"
+			tstr=t.to_s
+			
+			# Create the parameter string
+			if varParam=="tr"
+				p=tstr+","+tfixstr+","+tstr+","+tfixstr+","+tfixstr+","+tstr
+			else
+				p=tfixstr+","+tstr+","+tfixstr+","+tstr+","+tstr+","+tfixstr
+			end
+			p=p+","+@oc["thr-border"].to_s+","+@oc["thr-center-diff"].to_s
+			
+			com=@oc["execevaldetection"] + " -p " + p + " " 
+			if @oc["object-types"]!=""
+			     com=com+" -o "+@oc["object-types"].to_s+" "
+			end
+			if @oc["ignore-det"] > 0
+				com=com+" -d "+@oc["ignore-det"].to_s+" "
+			end
+			if @oc["ignore-gt"].to_i > 0
+				com=com+" -g "+@oc["ignore-gt"].to_s+" "
+			end
+			com=com+@oc["Files"][0] + " " + @oc["Files"][1]
+			com=com+" | "+@oc["execsumarizeeval"]+" -p "+tstr + " - >> " +tfiledetails.path	
+			runcom(com,true)
+						
+			t=t+tstp					
+		end		
+		$stderr.printf "---\n"
+			
+		# ---- Add the footer
+		tfiledetails.open
+		tfiledetails.seek(0,IO::SEEK_END)
+		tfiledetails.printf "</evaluationSeries>\n"		
+		tfiledetails.close(false)		
+		
+		# ---- Create the destination directory, if necessary
+		begin
+			d=File.stat(directory)
+			if not d.directory?
+				$stderr.printf "%s '%s' already exists and is not a directory!",$err,directory
+				exit 1
+			end
+		rescue
+			$stderr.printf("creating dir [%s]\n",directory)
+			Dir.mkdir(directory)
+		end		
+													
+		# ---- A final call to sumarizeeval creates the data for the plots		
+		com=@oc["execsumarizeeval"]+" -s "+directory+"/ "+tfiledetails.path
+		runcom(com,true)
+		
+		if @oc["doplot"]
+		    # ---- Create the detection file plot
+            runcom "(cd #{directory}; eplot -m Recall Precision Harmonic\\ mean -w 5 -x 'x=#{varParam}' -r [0:1][0:1] -a -o plot.pdf)",true
+            runcom "(cd #{directory}; eplot -m Recall Precision Harmonic\\ mean -w 2 -x 'x=#{varParam}' -r [0:1][0:1] -P -o plot.png)",true
+		end
+	end
+	
+	# --------------------------------------------------------------------------
+	# ---- Determine the performance value for one plot
+	def valueForOneCurve(filename)
+		mean=0
+		count=0
+		begin
+			file = File.open(filename) 
+		rescue
+			$stderr.printf "%scannot open file '%s' for reading!\n",$err,filename
+			exit 1
+		end		
+		file.each_line do |line| 
+			arr=line.split(" ")
+			if arr.length!=2 
+				$stderr.printf "%s the statistics file must contain 2 columns!"
+				exit 1
+			end
+			
+			mean=mean+arr[1].to_f 
+			count=count+1
+		end
+		file.close		
+		return mean/count
+	end
+end
+
+# --------------------------------------------------------------------------
+# The main program
+# --------------------------------------------------------------------------
+
+$c=Controller.new
+$c.run

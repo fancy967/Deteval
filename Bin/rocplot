@@ -1,0 +1,310 @@
+#!/usr/bin/ruby
+# **************************************************************************
+# rocplot 
+# 
+# Author: Christian Wolf
+#         christian.wolf@insa-lyon.fr
+#
+# Changelog:
+# 1.03 21.07.2009: -Bugfixes for windows: also protect the gt file ...
+# 1.02 21.07.2009: -Bugfixes for windows: use File.copy instead of a shell
+#                   call of "cp"; Put whole filenames in quotes instead
+#                   of quoting spaces with backslashes, which does not
+#                   work on windows.
+# 1.01 20.07.2009: -Bugfix: spaces in the filenames are admitted (quoted
+#                   with backslashes)
+# 1.00 02.04.2009: -First version
+#
+# 1 tab = 4 spaces
+#
+# **************************************************************************
+
+require 'tempfile'
+require 'ftools'
+
+# **************************************************************************
+# CONFIGURATION
+
+$Version="1.03 21.07.2009"
+
+# **************************************************************************
+# VARIOUS CONSTANTS
+
+$err="rocplot: *** ERROR *** "
+
+$licence=<<MARKER_MESSAGE
+Written by Christian Wolf (christian.wolf@liris.cnrs.fr)
+There is absolutely NO warranty!!
+MARKER_MESSAGE
+
+# ******************************************************************************
+# Quote spaces in a filename
+# ******************************************************************************
+
+def quotefilename(filename)
+    rv="\"#{filename}\""
+	rv
+end
+
+# ******************************************************************************
+# check whether we run under windows
+# ******************************************************************************
+
+def isWindows
+    RUBY_PLATFORM.index("win")!=nil
+end
+
+# ******************************************************************************
+# Argument processing:
+# The Option-Container class
+# ******************************************************************************
+
+class OptionController
+
+	# --------------------------------------------------------------------------
+	# ---- constructor
+	def initialize(xargv)		
+		@o={}
+	    @o["det-files"]=[]
+	    @o["gt-file"]=""
+		@o["dir-curve-roc"]="roc-curve"
+		@o["execevaldetection"]="evaldetection"
+		@o["execsumarizeeval"]="readdeteval"
+		@o["object-types"]=""
+		@o["quality"]="0.8,0.4,0.8,0.4,0.4,0.8,0,1"
+		@o["ignore-det"]=0
+		@o["ignore-gt"]=0
+		@o["doplot"]=false
+		i=0
+		filenr=0
+		com=""
+		while i<xargv.length
+			opt=xargv[i]
+
+			case opt	
+			
+				when /^-h$|^--help$/
+					usage					
+			
+				when /^-v$|^--version$/ 
+					$stderr.puts "rocplot version "+$Version
+					$stderr.puts $licence
+					exit 0
+												
+				# ---- an option
+				when /^--/
+					arr=opt[2..opt.length-1].split("=")
+					if arr.length!=2 then
+						$stderr.printf "%swrong syntax in option '%s'\n",$err,opt					
+						exit 1
+					end
+					if @o[arr[0]]==nil then
+						$stderr.printf "%sunknown option '%s'\n",$err,arr[0]
+						exit 1
+					end
+					$stderr.printf "Setting %s to %s\n",arr[0],arr[1]
+					
+					# --- If possible, convert it to a number
+					begin
+						converted=Float(arr[1])
+					rescue
+						converted=arr[1]
+					end
+					@o[arr[0]]=converted
+			
+				# ---- The argument is not an option but a file
+				else	
+				    @o["gt-file"] = opt if filenr==0			
+					@o["det-files"].push(opt) if filenr>0
+					filenr=filenr+1
+			end
+			i=i+1
+		end
+		
+		usage if @o["det-files"].length < 2 
+	end
+	
+	# --------------------------------------------------------------------------
+	# ---- check for a valid option argument
+	def checkOptArg(argv,i)
+		if argv.length<i+2
+			$stderr.printf "%soption '%s' needs an argument!\n",$err,argv[i]
+			exit 1
+		end
+		if argv[i+1][0,1]=="-"
+			$stderr.printf "%sinvalid argument '%s' to option '%s'!\n",$err,
+				argv[i+1],argv[i]
+			exit 1
+		end
+		return argv[i+1]
+	end
+		
+	# --------------------------------------------------------------------------	
+	# ---- writes the usage message
+	def usage
+		$stderr.printf "usage: %s [ options ] <groundtruth-xml> { <det-xmls> } \n",$0
+		$stderr.printf "\nOptions are of the format --<option>=<value>\n"
+		$stderr.printf "\nAvailable options:"
+		$stderr.printf "\ndir-curve-roc ...... dirctory where the curve data is written"
+		$stderr.printf "\n                     (default: "+@o["dir-curve-roc"]+")"		
+		$stderr.printf "\nignore-det ......... How many levels in the image name path do we ignore"
+		$stderr.printf "\n                     (detection-xml)"
+		$stderr.printf "\nignore-gt .......... How many levels in the image name path do we ignore"
+		$stderr.printf "\n                     (groundtruth-xml)"
+		$stderr.printf "\nquality ............ Set the evaluation quality constraints:"
+        $stderr.printf "\n                     <a>,<b>,<c>,<d>,<e>,<f>,<g>,<h>,<i>,<j>"
+        $stderr.printf "\n                     Default values: 0.8,0.4,0.8,0.4,0.4,0.8,0,1"
+        $stderr.printf "\nobject-types ....... Specify a comme separated list of object types which shall"
+        $stderr.printf "\n                     shall be loaded from the groundtruth, all other objects"
+        $stderr.printf "\n                     will be ignored in the groundtruth (but not in the "
+        $stderr.printf "\n                     detection lists!). Default: all objects will be loaded."
+        $stderr.printf "\ndoplot ............. true if pdf and png plots shall be created automatically."
+        $stderr.printf "\n                     (default: false)"
+		$stderr.printf "\n\n"
+		exit 0
+	end
+
+	# --------------------------------------------------------------------------
+	# ---- return a specific option
+	def [](oname)
+		x=@o[oname]
+		if x == nil
+			$stderr.printf "%sinternal error: option %s not found.\n",$err,oname
+			exit 1
+		else
+			return x
+		end
+	end
+			
+	# --------------------------------------------------------------------------
+	# ---- change a specific option
+	def []=(oname,newval)
+		x=@o[oname]
+		if x == nil
+			$stderr.printf "%sinternal error: option %s not found.\n",$err,oname
+			exit 1
+		else
+			@o[oname]=newval
+		end
+	end
+end
+
+# ******************************************************************************
+# The main controller class
+# ******************************************************************************
+
+class Controller
+
+	# --------------------------------------------------------------------------
+	# ---- constructor
+	def initialize
+	   @oc = OptionController.new(ARGV)			
+	end	
+	
+	# --------------------------------------------------------------------------
+	# ---- help function: run a command
+	def runcom(com,doEcho)
+		$stderr.printf "%s\n",com if doEcho 
+		if not system(com)
+			$stderr.printf "%srunning the command:\n%s",$err,com
+			$stderr.printf "Error code: %d\n",$?				
+			exit 1
+		end
+	end
+	
+	
+	def createDirIfNecessary(directory)
+	   # ---- Create the destination directory, if necessary
+		begin
+			d=File.stat(directory)
+			if not d.directory?
+				$stderr.printf "%s '%s' already exists and is not a directory!",$err,directory
+				exit 1
+			end
+		rescue
+			$stderr.printf("creating dir [%s]\n",directory)
+			Dir.mkdir(directory)
+		end
+	end
+	
+	# --------------------------------------------------------------------------
+	def run
+
+	    #---- Test whether eplot and ec are installed
+#         if @oc["doplot"] 
+#             if not system("eplot -h 2> /dev/null")
+#                 $stderr.printf("eplot needs to be installed in order to use the --doplot=true option!");
+#                 exit 1
+#             end
+#             if not system("ec -h 2> /dev/null")
+#                 $stderr.printf("eplot needs to be installed in order to use the --doplot=true option!");
+#                 exit 1
+#             end
+#         end
+	     
+        # Open a temporary file and write the header into it
+		tfiledetails=Tempfile.new("evaldetectioncurves")
+		tfiledetails.printf "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+		tfiledetails.printf "<evaluationSeries>\n"
+		tfiledetails.close(false)
+		
+		vparam=1
+		@oc["det-files"].each do |detfile|	
+			com=@oc["execevaldetection"]+" -p "+@oc["quality"]+" "
+			if @oc["object-types"]!=""
+			     com=com+" -o "+@oc["object-types"].to_s+" "
+			end
+			if @oc["ignore-det"] > 0
+				com=com+" -d "+@oc["ignore-det"].to_s+" "
+			end
+			if @oc["ignore-gt"].to_i > 0
+				com=com+" -g "+@oc["ignore-gt"].to_s+" "
+			end
+			
+			# ---- Quote spaces in the filename
+			com=com+"#{quotefilename(detfile)} #{quotefilename(@oc["gt-file"])}"
+			print com   
+			com=com+" | "+@oc["execsumarizeeval"]+" -p #{vparam.to_s} - >> #{tfiledetails.path}"
+			runcom(com,true)
+						
+			vparam=vparam+1
+		end		
+		$stderr.printf "---\n"
+			
+		# ---- Add the footer
+		tfiledetails.open
+		tfiledetails.seek(0,IO::SEEK_END)
+		tfiledetails.printf "</evaluationSeries>\n"		
+		tfiledetails.close(false)
+				
+		$stderr.printf "Path of tempfile: #{tfiledetails.path}\n"
+		$stderr.printf "Copying to temp-curve.txt\n"
+        File.copy(tfiledetails.path,"temp-curve.txt")
+		
+		createDirIfNecessary @oc["dir-curve-roc"]
+													
+		# ---- A final call to sumarizeeval creates the data for the 
+		# ---- parameter plot
+		com=@oc["execsumarizeeval"]+" -s "+@oc["dir-curve-roc"]+"/ "+tfiledetails.path
+		runcom(com,true)
+		
+		if @oc["doplot"]
+		    # ---- Create the detection file plot
+            runcom "(cd #{@oc["dir-curve-roc"]}; eplot -m Recall Precision Harmonic\\ mean -w 5 -x 'x=detection file' -r [0:#{vparam}][0:1] -a -o fileplot.pdf)",true
+            runcom "(cd #{@oc["dir-curve-roc"]}; eplot -m Recall Precision Harmonic\\ mean -w 2 -x 'x=detection file' -r [0:#{vparam}][0:1] -P -o fileplot.png)",true
+            
+		    # ---- Create the ROC curve out of the parameter curve
+#             runcom "(cd #{@oc["dir-curve-roc"]}; cat Recall | ec 2 > a; cat Precision | ec 2 > b; paste a b | sort -n > c ; echo '0 0' > d ; paste a a | sort -n >> d ; echo '0.9 0.9' >> d; eplot -m c d -w 5 -t 'Precision@Equal error' -x 'x=Recall' -r [0:1][0:1] -a -o rocplot.pdf ; rm -f a b c d )",true
+#             runcom "(cd #{@oc["dir-curve-roc"]}; cat Recall | ec 2 > a; cat Precision | ec 2 > b; paste a b | sort -n > c ; echo '0 0' > d ; paste a a | sort -n >> d ; echo '0.9 0.9' >> d; eplot -m c d -w 2 -t 'Precision@Equal error' -x 'x=Recall' -r [0:1][0:1] -P -o rocplot.png ; rm -f a b c d )",true
+              runcom "(cd #{@oc["dir-curve-roc"]}; cat Recall | ec 2 > a; cat Precision | ec 2 > b; paste a b | sort -n > c ; echo '0 0' > d ; paste a a | sort -n >> d ; echo '0.9 0.9' >> d; eplot -m c d -w 5 -t 'Precision@Equal error' -x 'x=Recall' -r [0:1][0:1] -a -o rocplot.pdf)",true
+            runcom "(cd #{@oc["dir-curve-roc"]}; cat Recall | ec 2 > a; cat Precision | ec 2 > b; paste a b | sort -n > c ; echo '0 0' > d ; paste a a | sort -n >> d ; echo '0.9 0.9' >> d; eplot -m c d -w 2 -t 'Precision@Equal error' -x 'x=Recall' -r [0:1][0:1] -P -o rocplot.png)",true
+		end
+    end    
+end
+
+# --------------------------------------------------------------------------
+# The main program
+# --------------------------------------------------------------------------
+
+$c=Controller.new
+$c.run
