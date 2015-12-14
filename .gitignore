@@ -3,3 +3,6 @@
 CMakeLists.txt
 *.o
 *.exe
+*.xml
+evaldetection
+readdeteval
