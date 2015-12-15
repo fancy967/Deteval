@@ -10,11 +10,12 @@
 # 1 tab = 4 spaces
 # *************************************************************************
 
-CFLAGS  	=-Wall -g -I. -I/usr/include/libxml2 -DHAVE_LIBXML2 -D
+CFLAGS  	=-Wall -g -I. -I/usr/include/libxml2 -DHAVE_LIBXML2
 CC			=gcc
 CPPLIBS		=-lm -lstdc++ -lxml2	
 OBJECTS		= BoxEvaluator.o BoxMatrix.o BoxOverlap.o CIL.o OptionContainer.o ParameterParsing.o Rect.o RectEval.o RectEvalList.o 
-BINARIES 	= ../Bin/evaldetection ../Bin/readdeteval
+BINARIES 	= evaldetection readdeteval
+BUILD       = ../Bin
 
 .SUFFIXES:
 .SUFFIXES:	.o .c .cpp .cc
@@ -31,11 +32,11 @@ all: 		$(BINARIES)
 		$(CC) $(CFLAGS) -c $*.c
 
 evaldetection:	$(OBJECTS) evaldetection.o
-			$(CC) -o ../Bin/evaldetection evaldetection.o $(OBJECTS) $(CPPLIBS)
+			$(CC) -o $(BUILD)/evaldetection evaldetection.o $(OBJECTS) $(CPPLIBS)
 		
 readdeteval:	$(OBJECTS) readdeteval.o
-			$(CC) -o ../Bin/readdeteval readdeteval.o $(OBJECTS) $(CPPLIBS)
+			$(CC) -o $(BUILD)/readdeteval readdeteval.o $(OBJECTS) $(CPPLIBS)
 			
 clean:	
 		rm -f *.o 
-		rm -f $(BINARIES)
+		rm -f $(addprefix $(BUILD)/, $(BINARIES))
