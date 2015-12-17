@@ -52,9 +52,5 @@ else
 end
 printAndRun(com)
 
-if os == :windows
-    com="readdeteval _x.xml"
-else
-    com="./readdeteval _x.xml"
-end
+com="./readdeteval _x.xml"
 printAndRun(com)
