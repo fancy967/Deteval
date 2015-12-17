@@ -6,3 +6,5 @@ CMakeLists.txt
 *.xml
 evaldetection
 readdeteval
+Bin/evalcurve-tp/
+Bin/evalcurve-tr/

@@ -14,24 +14,6 @@
 
 require 'rbconfig'
 
-def os
-    @os ||= (
-        host_os = RbConfig::CONFIG['host_os']
-        case host_os
-        when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
-            :windows
-        when /darwin|mac os/
-            :macosx
-        when /linux/
-            :linux
-        when /solaris|bsd/
-            :unix
-        else
-            raise Error::WebDriverError, "unknown os: #{host_os.inspect}"
-        end
-    )
-end
-
 def printAndRun(com)
 	$stderr.puts com
 	if not system(com)
@@ -45,11 +27,7 @@ if ARGV.length()<1
 	exit 1
 end
 
-if os == :windows
-    com="evaldetection "+ARGV.join(" ")+" > _x.xml"
-else
-    com="./evaldetection "+ARGV.join(" ")+" > _x.xml"
-end
+com="./evaldetection "+ARGV.join(" ")+" > _x.xml"
 printAndRun(com)
 
 com="./readdeteval _x.xml"
