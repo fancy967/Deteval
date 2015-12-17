@@ -38,9 +38,7 @@ def printAndRun(com)
 		$stderr.printf "Error code: %d\n",$?
 		exit 1
 	end
-end	
-
-$stderr.puts os
+end
 
 if ARGV.length()<1
 	$stderr.puts ("usage: evalfixed <det-results-xml> <groundtruth-xml>")

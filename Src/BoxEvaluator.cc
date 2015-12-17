@@ -610,16 +610,35 @@ double BoxEvaluator::matchScore	(std::ostream *ost, int numberGTRectangles)
 			   		<< " hmean=\"" << hmean << "\""
 			     	<< " noGT=\"" << gs   << "\""
 			   		<< " noD=\"" << ds   << "\""
-			 		<< "/>\n"
+			 		<< "/>\n";
+
+//#ifdef DETAILED_MATCH_RESULTS
+            for (int t=0; t<ds; ++t){
+            	if ((*pD)[t]->matchType != MTYPE_MISSED) {
+                    *ost << "      <Match x=\"" << (*pD)[t]->left << "\""
+                                << " y=\"" << (*pD)[t]->top << "\""
+                                << " width=\"" << (*pD)[t]->width() << "\""
+                                << " height=\"" << (*pD)[t]->height()   << "\""
+                                << "/>\n";
+            	}else{
+                    *ost << "      <noMatch x=\"" << (*pD)[t]->left << "\""
+                                << " y=\"" << (*pD)[t]->top << "\""
+                                << " width=\"" << (*pD)[t]->width() << "\""
+                                << " height=\"" << (*pD)[t]->height()   << "\""
+                                << "/>\n";
+            	}
+            }
+//#endif
+
+
 #ifdef DETAILED_EVAL_OUTPUT
-			 << "    <scoreSurf r=\"" << surfR << "\""
-			 		<< " p=\"" << surfP << "\""
-			   		<< " hmean=\"" << surfH  << "\""
-			     	<< " surfGT=\"" << totAreaGT << "\""
-			      	<< " surfD=\"" << totAreaD  << "\""
-			     	<< "/>\n"
+            *ost << "    <scoreSurf r=\"" << surfR << "\""
+				 		<< " p=\"" << surfP << "\""
+				 		<< " hmean=\"" << surfH  << "\""
+				 		<< " surfGT=\"" << totAreaGT << "\""
+				 		<< " surfD=\"" << totAreaD  << "\""
+				 		<< "/>\n";
 #endif
-			 ;			 
 	}
 
 	return hmean;
