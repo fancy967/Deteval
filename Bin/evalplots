@@ -80,8 +80,9 @@ class OptionController
 		@o["thr-center-diff"]=1.0
 		@o["execevaldetection"]="./evaldetection"
 		@o["execsumarizeeval"]="./readdeteval"
-		@o["dir-curve-tp"]="evalcurve-tp"
-		@o["dir-curve-tr"]="evalcurve-tr"
+		@o["execeplot"]="../../Deteval/Bin/eplot"
+		@o["dir-curve-tp"]="../../Output/evalcurve-tp"
+		@o["dir-curve-tr"]="../../Output/evalcurve-tr"
 		@o["ignore-det"]=0
 		@o["ignore-gt"]=0
 		@o["doplot"]=false
@@ -353,8 +354,8 @@ class Controller
 		
 		if @oc["doplot"]
 		    # ---- Create the detection file plot
-            runcom "(cd #{directory}; ../eplot -m Recall Precision Harmonic\\ mean -w 5 -x 'x=#{varParam}' -r [0:1][0:1] -a -o plot.pdf)",true
-            runcom "(cd #{directory}; ../eplot -m Recall Precision Harmonic\\ mean -w 2 -x 'x=#{varParam}' -r [0:1][0:1] -P -o plot.png)",true
+            runcom "(cd #{directory}; "+@oc["execeplot"]+" -m Recall Precision Harmonic\\ mean -w 5 -x 'x=#{varParam}' -r [0:1][0:1] -a -o plot.pdf)",true
+            runcom "(cd #{directory}; "+@oc["execeplot"]+" -m Recall Precision Harmonic\\ mean -w 2 -x 'x=#{varParam}' -r [0:1][0:1] -P -o plot.png)",true
 		end
 	end
 	

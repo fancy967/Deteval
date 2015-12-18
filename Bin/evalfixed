@@ -27,8 +27,8 @@ if ARGV.length()<1
 	exit 1
 end
 
-com="./evaldetection "+ARGV.join(" ")+" > _x.xml"
+com="./evaldetection "+ARGV.join(" ")+" > ../../Output/eval_results.xml"
 printAndRun(com)
 
-com="./readdeteval _x.xml"
+com="./readdeteval ../../Output/eval_results.xml"
 printAndRun(com)
