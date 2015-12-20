@@ -35,8 +35,8 @@ double BoxEvaluator::MatchTypeArr[] =
 // the configurable parameters
 
 char *EvalParameterDefaults = 
-	"0.8,"	// tr: EV_PARAM_IND_ONE_G
-	"0.4,"	// tp: EV_PARAM_IND_ONE_D
+	"0.5,"	// tr: EV_PARAM_IND_ONE_G
+	"0.5,"	// tp: EV_PARAM_IND_ONE_D
 	"0.8,"	// tr: EV_PARAM_IND_OM_SUM_O_G
 	"0.4,"	// tp: EV_PARAM_IND_OM_M_D
 	"0.4,"	// tp: EV_PARAM_IND_OM_SUM_O_D
