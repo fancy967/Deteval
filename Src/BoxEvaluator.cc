@@ -17,6 +17,7 @@
 // Fixed parameters: the ksc function which determines how 
 // fragmentation is penalised
 #define MTYPE_WEIGHT_MISSED				0.0
+#define MTYPE_WEIGHT_OO_PRE				1.0
 #define MTYPE_WEIGHT_OO_O				1.0
 #define MTYPE_WEIGHT_OM_O				0.8
 #define MTYPE_WEIGHT_OM_M				0.8
@@ -24,7 +25,8 @@
 
 double BoxEvaluator::MatchTypeArr[] = 
 {
-	MTYPE_WEIGHT_MISSED,		
+	MTYPE_WEIGHT_MISSED,
+	MTYPE_WEIGHT_OO_PRE,
 	MTYPE_WEIGHT_OO_O,		
 	MTYPE_WEIGHT_OM_O,		
 	MTYPE_WEIGHT_OM_M,		
@@ -36,7 +38,7 @@ double BoxEvaluator::MatchTypeArr[] =
 
 char *EvalParameterDefaults = 
 	"0.5,"	// tr: EV_PARAM_IND_ONE_G
-	"0.5,"	// tp: EV_PARAM_IND_ONE_D
+	"0.4,"	// tp: EV_PARAM_IND_ONE_D
 	"0.8,"	// tr: EV_PARAM_IND_OM_SUM_O_G
 	"0.4,"	// tp: EV_PARAM_IND_OM_M_D
 	"0.4,"	// tp: EV_PARAM_IND_OM_SUM_O_D
@@ -122,7 +124,11 @@ void BoxEvaluator::searchOO	(std::ostream *ost)
 				{
 #ifdef DEBUG_BOXEVALUATOR	
 			cerr << "   acc ";			
-#endif	   				
+#endif
+
+					(*pG)[x]->matchType = MTYPE_OO_PRE;
+					(*pD)[y]->matchType	= MTYPE_OO_PRE;
+
 					// See research notebook 3.7.2003, pp95-96
 					rInc=MatchTypeArr[MTYPE_OO_O];
 					pInc=MatchTypeArr[MTYPE_OO_O];
@@ -206,7 +212,7 @@ void BoxEvaluator::searchOM (bool oneIsGT, float thOneSum, float thMany, std::os
 	{
 
 		// We already matched the rectangle
-		if ((*lOne)[co]->matchType != MTYPE_MISSED)
+		if ((*lOne)[co]->matchType != MTYPE_MISSED && (*lOne)[co]->matchType != MTYPE_OO_PRE)
 			continue;
 
 		// The "one" rectangle doesn't have	more than one overlap -> skip it
@@ -617,12 +623,9 @@ double BoxEvaluator::matchScore	(std::ostream *ost, int numberGTRectangles)
 				*ost << "    <taggedRectangle x=\"" << (*pD)[t]->left << "\""
 							<< " y=\"" << (*pD)[t]->top << "\""
 							<< " width=\"" << (*pD)[t]->width() << "\""
-							<< " height=\"" << (*pD)[t]->height()   << "\"";
-				if ((*pD)[t]->matchType != MTYPE_MISSED)
-					*ost << " match=\"yes\"";
-				else
-					*ost << " match=\"no\"";
-				*ost << "/>\n";
+							<< " height=\"" << (*pD)[t]->height()   << "\""
+					 		<< " match=\"" << (*pD)[t]->matchType << "\""
+					 		<< "/>\n";
             }
 //#endif
 

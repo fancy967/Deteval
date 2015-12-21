@@ -38,10 +38,11 @@ enum TypeTruthType {
 
 enum TypeMatchType {
 	MTYPE_MISSED,
+	MTYPE_OO_PRE,
 	MTYPE_OO_O,
 	MTYPE_OM_O,
 	MTYPE_OM_M,
-	MTYPE_MM_M
+	MTYPE_MM_M,
 };
 
 class RectEval : public	Rect {
