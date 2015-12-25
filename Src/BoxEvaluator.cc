@@ -619,14 +619,24 @@ double BoxEvaluator::matchScore	(std::ostream *ost, int numberGTRectangles)
 			 		<< "/>\n";
 
 //#ifdef DETAILED_MATCH_RESULTS
-            for (int t=0; t<ds; ++t){
-				*ost << "    <taggedRectangle x=\"" << (*pD)[t]->left << "\""
-							<< " y=\"" << (*pD)[t]->top << "\""
-							<< " width=\"" << (*pD)[t]->width() << "\""
-							<< " height=\"" << (*pD)[t]->height()   << "\""
-					 		<< " match=\"" << (*pD)[t]->matchType << "\""
-					 		<< "/>\n";
-            }
+		for (int t=0; t<ds; ++t){
+			*ost << "    <taggedRectangle x=\"" << (*pD)[t]->left << "\""
+						<< " y=\"" << (*pD)[t]->top << "\""
+						<< " width=\"" << (*pD)[t]->width() << "\""
+						<< " height=\"" << (*pD)[t]->height()   << "\""
+						<< " match=\"" << (*pD)[t]->matchType << "\""
+						<< " isGT=\"false\""
+						<< "/>\n";
+		}
+		for (int k=0; k<gs; ++k){
+			*ost << "    <taggedRectangle x=\"" << (*pG)[k]->left << "\""
+			<< " y=\"" << (*pG)[k]->top << "\""
+			<< " width=\"" << (*pG)[k]->width() << "\""
+			<< " height=\"" << (*pG)[k]->height()   << "\""
+			<< " match=\"" << (*pG)[k]->matchType << "\""
+			<< " isGT=\"true\""
+			<< "/>\n";
+		}
 //#endif
 
 
